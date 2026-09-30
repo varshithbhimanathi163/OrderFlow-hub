@@ -1,0 +1,6 @@
+{
+  "name": "OrderFlow - Embeddable Order Form & Management Hub",
+  "description": "Create, customize, and generate embeddable HTML customer order forms with automatic unique Order IDs, live validation, and a full admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
