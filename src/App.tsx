@@ -277,38 +277,64 @@ export default function App() {
     };
   }, []);
 
-  // Listen to BroadcastChannel for real-time order updates from embedded forms
+  // Listen to BroadcastChannel & Window Storage for real-time order updates from embedded forms
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
-    const channel = new BroadcastChannel('orderflow_channel');
-
-    channel.onmessage = async (event) => {
-      if (event.data && event.data.type === 'NEW_ORDER') {
-        const ord = event.data.order;
-        try {
-          await fetch('/api/submissions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: ord.id,
-              name: ord.name,
-              mobile: ord.mobile,
-              address: ord.address,
-              notes: ord.notes,
-            }),
-          });
-          fetchSubmissions(true);
-          fetchStats();
-        } catch (err) {
-          console.error('Failed to save broadcast order to backend:', err);
-        }
+    const handleIncomingOrder = async (ord: any) => {
+      if (!ord || !ord.name) return;
+      try {
+        await fetch('/api/submissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: ord.id,
+            name: ord.name,
+            mobile: ord.mobile,
+            address: ord.address,
+            notes: ord.notes || 'Submitted via standalone HTML form',
+          }),
+        });
+        fetchSubmissions(true);
+        fetchStats();
+      } catch (err) {
+        console.error('Failed to save broadcast order to backend:', err);
       }
     };
 
-    return () => {
-      channel.close();
+    let ch1: BroadcastChannel | null = null;
+    let ch2: BroadcastChannel | null = null;
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        ch1 = new BroadcastChannel('orderflow_channel');
+        ch1.onmessage = (event) => {
+          if (event.data && (event.data.type === 'NEW_ORDER' || event.data.type === 'SYNC_OFFLINE_ORDER')) {
+            handleIncomingOrder(event.data.order);
+          }
+        };
+
+        ch2 = new BroadcastChannel('orderflow_orders_channel');
+        ch2.onmessage = (event) => {
+          if (event.data && (event.data.type === 'NEW_ORDER' || event.data.type === 'SYNC_OFFLINE_ORDER')) {
+            handleIncomingOrder(event.data.order);
+          }
+        };
+      } catch (_) {}
+    }
+
+    // Listen to localStorage updates across tabs
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'orderflow_offline_orders' && e.newValue) {
+        syncPendingOfflineOrders();
+      }
     };
-  }, [fetchSubmissions, fetchStats]);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (ch1) ch1.close();
+      if (ch2) ch2.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [fetchSubmissions, fetchStats, syncPendingOfflineOrders]);
 
   // Live auto-refresh polling (every 8 seconds when enabled)
   useEffect(() => {

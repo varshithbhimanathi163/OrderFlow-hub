@@ -38,11 +38,11 @@ export const FormBuilderTab: React.FC<FormBuilderTabProps> = ({
 }) => {
   const [config, setConfig] = useState<FormConfig>({
     ...DEFAULT_FORM_CONFIG,
-    apiUrl: '',
+    apiUrl: publicBaseUrl ? `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` : '',
   });
 
   const [generatedHtml, setGeneratedHtml] = useState<string>(() =>
-    generateEmbedHtml(DEFAULT_FORM_CONFIG, publicBaseUrl)
+    generateEmbedHtml({ ...DEFAULT_FORM_CONFIG, apiUrl: publicBaseUrl ? `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` : '' }, publicBaseUrl)
   );
 
   const [copied, setCopied] = useState(false);
@@ -238,6 +238,22 @@ ${freshHtml}
             <div className="grid grid-cols-3 gap-1.5 text-xs">
               <button
                 type="button"
+                onClick={() => setConfig({ ...config, apiUrl: `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` })}
+                className={`px-2 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  (config.apiUrl || effectiveApiUrl) === `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` && !(config.apiUrl || '').includes('vercel.app')
+                    ? 'border-blue-500 bg-blue-50/70 text-blue-700 font-semibold ring-1 ring-blue-500'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <div className="font-bold text-[11px] truncate flex items-center justify-between">
+                  <span>☁️ Live Host</span>
+                  <span className="text-[9px] bg-blue-100 text-blue-800 px-1 rounded">Default</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Direct Dashboard Sync</div>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   const current = config.apiUrl || '';
                   if (current.includes('vercel.app')) {
@@ -259,20 +275,7 @@ ${freshHtml}
                 }`}
               >
                 <div className="font-bold text-[11px] text-emerald-700 truncate">▲ Vercel URL</div>
-                <div className="text-[10px] text-slate-400">For Odoo & Live Sites</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setConfig({ ...config, apiUrl: `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` })}
-                className={`px-2 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
-                  (config.apiUrl || effectiveApiUrl) === `${publicBaseUrl.replace(/\/$/, '')}/api/submissions` && !(config.apiUrl || '').includes('vercel.app')
-                    ? 'border-blue-500 bg-blue-50/70 text-blue-700 font-semibold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div className="font-bold text-[11px] truncate">☁️ Current App</div>
-                <div className="text-[10px] text-slate-400">Preview Host</div>
+                <div className="text-[10px] text-slate-400">For Custom Domains</div>
               </button>
 
               <button
@@ -280,7 +283,7 @@ ${freshHtml}
                 onClick={() => setConfig({ ...config, apiUrl: 'http://localhost:3000/api/submissions' })}
                 className={`px-2 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
                   (config.apiUrl || effectiveApiUrl) === 'http://localhost:3000/api/submissions'
-                    ? 'border-blue-500 bg-blue-50/70 text-blue-700 font-semibold'
+                    ? 'border-blue-500 bg-blue-50/70 text-blue-700 font-semibold ring-1 ring-blue-500'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >

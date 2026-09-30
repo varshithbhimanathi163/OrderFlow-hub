@@ -28,7 +28,8 @@ app.options('*', (req, res) => {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Mount API router
+// Mount API router for both `/api` prefix and root prefix (handles Vercel /api rewrites)
 app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 export default app;

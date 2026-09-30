@@ -489,6 +489,9 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
 (function() {
   var PRIMARY_URL = ${JSON.stringify(targetApiUrl)};
   var APP_BASE_URL = ${JSON.stringify(publicBaseUrl.replace(/\/$/, ''))};
+  var FIRESTORE_API_KEY = "AIzaSyDNwjQiU1RO5MpWQRYaa80cIGosX5rqUzw";
+  var FIRESTORE_PROJECT_ID = "gen-lang-client-0849458070";
+  var FIRESTORE_DB = "orderflow-hub";
   var form = document.getElementById('orderflow-form');
   var formSection = document.getElementById('of-form-section');
   var successSection = document.getElementById('of-success-section');
@@ -538,7 +541,7 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
     }
 
     var mobileVal = (mobileInput.value || '').trim();
-    var digits = mobileVal.replace(/\\D/g, '');
+    var digits = mobileVal.replace(/\D/g, '');
     if (digits.length < 5) {
       mobileInput.classList.add('has-error');
       errMobile.style.display = 'block';
@@ -576,20 +579,28 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
   function getCandidateEndpoints() {
     var endpoints = [];
 
-    // ALWAYS include PRIMARY_URL! Never skip it!
+    // 1. Target URL specified in Form Builder
     if (PRIMARY_URL && endpoints.indexOf(PRIMARY_URL) === -1) {
       endpoints.push(PRIMARY_URL);
     }
 
-    // If opened from file:///, also include local ports if user is running local server
-    if (isFileUrl()) {
+    // 2. Active OrderFlow App live host endpoint
+    if (APP_BASE_URL) {
+      var appEndpoint = APP_BASE_URL + '/api/submissions';
+      if (endpoints.indexOf(appEndpoint) === -1) {
+        endpoints.push(appEndpoint);
+      }
+    }
+
+    // 3. Localhost endpoints for local testing
+    if (isFileUrl() || (window.location && window.location.hostname === 'localhost')) {
       var localEndpoint1 = 'http://localhost:3000/api/submissions';
       var localEndpoint2 = 'http://127.0.0.1:3000/api/submissions';
       if (endpoints.indexOf(localEndpoint1) === -1) endpoints.push(localEndpoint1);
       if (endpoints.indexOf(localEndpoint2) === -1) endpoints.push(localEndpoint2);
     }
 
-    // If hosted via HTTP/HTTPS, allow same-origin fallback
+    // 4. Same-origin endpoint if hosted on a web server
     if (!isFileUrl() && window.location && window.location.origin && window.location.origin !== 'null') {
       var base = window.location.origin;
       var cleanOrigin = base.charAt(base.length - 1) === '/' ? base.slice(0, -1) : base;
@@ -598,6 +609,22 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
     }
 
     return endpoints;
+  }
+
+  function formatDate(d) {
+    try {
+      return d.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+    } catch(e) {
+      return d.toISOString();
+    }
   }
 
   if (form) {
@@ -624,28 +651,55 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
         notes: isFileUrl() ? 'Submitted via downloaded HTML form (file://)' : 'Submitted via embed form'
       };
 
+      var pendingSubmission = {
+        id: clientGeneratedId,
+        name: payload.name,
+        mobile: payload.mobile,
+        address: payload.address,
+        createdAt: now.toISOString(),
+        createdAtFormatted: formatDate(now),
+        status: 'new',
+        notes: payload.notes,
+        sourceUrl: window.location.href || 'standalone-form'
+      };
+
+      currentSyncPayload = pendingSubmission;
+
+      // Realtime Cross-Tab Broadcast to any open OrderFlow Admin tab
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          var ch1 = new BroadcastChannel('orderflow_channel');
+          ch1.postMessage({ type: 'NEW_ORDER', order: pendingSubmission });
+          var ch2 = new BroadcastChannel('orderflow_orders_channel');
+          ch2.postMessage({ type: 'SYNC_OFFLINE_ORDER', order: pendingSubmission });
+          ch2.postMessage({ type: 'NEW_ORDER', order: pendingSubmission });
+        }
+      } catch(e) {}
+
+      // Always save to localStorage for offline recovery
+      try {
+        var q = JSON.parse(localStorage.getItem('orderflow_offline_orders') || '[]');
+        q.push(pendingSubmission);
+        localStorage.setItem('orderflow_offline_orders', JSON.stringify(q));
+      } catch(e) {}
+
       var candidates = getCandidateEndpoints();
       var succeeded = false;
-      var lastError = '';
-      var failedReason = '';
 
+      // 1. Iterate candidate backend server endpoints
       if (candidates.length > 0) {
         for (var i = 0; i < candidates.length; i++) {
           var candidateUrl = candidates[i];
 
-          // Check for mixed-content violation (HTTP endpoint from HTTPS site like Odoo)
+          // Skip HTTP from HTTPS sites
           if (window.location && window.location.protocol === 'https:' && candidateUrl.indexOf('http://') === 0) {
-            console.warn('[OrderFlow] Mixed Content Warning: Cannot call HTTP endpoint from HTTPS site (' + candidateUrl + '). Use your HTTPS Vercel endpoint.');
-            failedReason = 'Mixed Content: Target URL is HTTP (' + candidateUrl + ') on an HTTPS website. Please use your HTTPS Vercel URL.';
             continue;
           }
 
-          // Attempt 1: Fetch with credentials: 'include' (for Google dev preview containers)
           try {
             var response = await fetch(candidateUrl, {
               method: 'POST',
               mode: 'cors',
-              credentials: 'include',
               headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
@@ -653,117 +707,63 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
               body: JSON.stringify(payload)
             });
 
-            var data = await response.json();
-
-            if (response.ok && data.success) {
-              resultOrderId.textContent = data.orderId || clientGeneratedId;
-              if (syncNotice) syncNotice.style.display = 'none';
-              formSection.style.display = 'none';
-              successSection.style.display = 'block';
-              succeeded = true;
-              break;
-            } else {
-              lastError = data.error || 'Failed to place order. Please review your input.';
-            }
-          } catch (networkErr1) {
-            console.warn('[OrderFlow] Fetch with credentials failed on:', candidateUrl, networkErr1);
-
-            // Attempt 2: Fetch with credentials: 'omit' (for standard public APIs and Vercel)
-            try {
-              var response2 = await fetch(candidateUrl, {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'omit',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-              });
-
-              var data2 = await response2.json();
-
-              if (response2.ok && data2.success) {
-                resultOrderId.textContent = data2.orderId || clientGeneratedId;
-                if (syncNotice) syncNotice.style.display = 'none';
-                formSection.style.display = 'none';
-                successSection.style.display = 'block';
+            if (response.ok) {
+              var data = await response.json();
+              if (data && data.success) {
+                resultOrderId.textContent = data.orderId || clientGeneratedId;
                 succeeded = true;
                 break;
               }
-            } catch (networkErr2) {
-              console.warn('[OrderFlow] Fetch without credentials failed on:', candidateUrl, networkErr2);
-
-              // Attempt 3: XMLHttpRequest Fallback
-              try {
-                var xhrData = await new Promise(function(resolve, reject) {
-                  var xhr = new XMLHttpRequest();
-                  xhr.open('POST', candidateUrl, true);
-                  xhr.withCredentials = true;
-                  xhr.setRequestHeader('Content-Type', 'application/json');
-                  xhr.setRequestHeader('Accept', 'application/json');
-                  xhr.timeout = 7000;
-                  xhr.onload = function() {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                      try { resolve(JSON.parse(xhr.responseText)); } catch(e) { resolve({ success: true, orderId: clientGeneratedId }); }
-                    } else {
-                      reject(new Error('Status ' + xhr.status));
-                    }
-                  };
-                  xhr.onerror = function() { reject(new Error('XHR Network Error')); };
-                  xhr.ontimeout = function() { reject(new Error('Timeout')); };
-                  xhr.send(JSON.stringify(payload));
-                });
-
-                if (xhrData && xhrData.success) {
-                  resultOrderId.textContent = xhrData.orderId || clientGeneratedId;
-                  if (syncNotice) syncNotice.style.display = 'none';
-                  formSection.style.display = 'none';
-                  successSection.style.display = 'block';
-                  succeeded = true;
-                  break;
-                }
-              } catch (xhrErr) {
-                console.warn('[OrderFlow] XHR fallback failed:', xhrErr);
-                failedReason = 'Direct connection to ' + candidateUrl + ' was blocked by browser cross-origin policy or cookie checks.';
-              }
             }
+          } catch (netErr) {
+            console.warn('[OrderFlow] Candidate endpoint failed:', candidateUrl, netErr.message);
           }
         }
       }
 
+      // 2. Direct Firestore REST API Dispatch Fallback
+      // Guarantees persistence even if custom server URL is 404, CORS-blocked, or down
       if (!succeeded) {
-        // Resilient Sync Engine:
-        // Automatically assign identical Order ID and enable 1-click sync
-        var pendingSubmission = {
-          id: clientGeneratedId,
-          name: payload.name,
-          mobile: payload.mobile,
-          address: payload.address,
-          createdAt: now.toISOString(),
-          status: 'new',
-          notes: 'Submitted via downloaded HTML form (Local/File Mode)',
-          sourceUrl: window.location.href || 'standalone-form'
-        };
-
-        currentSyncPayload = pendingSubmission;
-
-        // 1. Broadcast to any open OrderFlow Admin tab
         try {
-          if (typeof BroadcastChannel !== 'undefined') {
-            var channel = new BroadcastChannel('orderflow_orders_channel');
-            channel.postMessage({ type: 'SYNC_OFFLINE_ORDER', order: pendingSubmission });
+          var firestoreUrl = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_PROJECT_ID + '/databases/' + FIRESTORE_DB + '/documents/orders?documentId=' + encodeURIComponent(clientGeneratedId) + '&key=' + FIRESTORE_API_KEY;
+          var fRes = await fetch(firestoreUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                id: { stringValue: clientGeneratedId },
+                name: { stringValue: payload.name },
+                mobile: { stringValue: payload.mobile },
+                address: { stringValue: payload.address },
+                status: { stringValue: 'new' },
+                createdAt: { stringValue: now.toISOString() },
+                createdAtFormatted: { stringValue: formatDate(now) },
+                notes: { stringValue: payload.notes },
+                sourceUrl: { stringValue: window.location.href || 'standalone-form' }
+              }
+            })
+          });
+
+          if (fRes.ok) {
+            console.log('[OrderFlow] Order successfully committed directly to Firestore (orderflow-hub)!');
+            resultOrderId.textContent = clientGeneratedId;
+            succeeded = true;
           }
-        } catch(e) {}
+        } catch (fErr) {
+          console.warn('[OrderFlow] Direct Firestore REST fallback error:', fErr);
+        }
+      }
 
-        // 2. Persist in localStorage queue
-        try {
-          var q = JSON.parse(localStorage.getItem('orderflow_offline_orders') || '[]');
-          q.push(pendingSubmission);
-          localStorage.setItem('orderflow_offline_orders', JSON.stringify(q));
-        } catch(e) {}
+      setLoading(false);
 
-        // Display success state with the generated Order ID
+      if (succeeded) {
+        // Form submitted and committed to Firestore/backend
+        resultOrderId.textContent = clientGeneratedId;
+        if (syncNotice) syncNotice.style.display = 'none';
+        formSection.style.display = 'none';
+        successSection.style.display = 'block';
+      } else {
+        // Offline recovery state with 1-click import
         resultOrderId.textContent = clientGeneratedId;
         if (syncNotice) {
           syncNotice.style.display = 'block';
@@ -774,7 +774,6 @@ export function generateEmbedHtml(config: FormConfig, publicBaseUrl: string): st
         }
         formSection.style.display = 'none';
         successSection.style.display = 'block';
-        setLoading(false);
       }
     });
   }

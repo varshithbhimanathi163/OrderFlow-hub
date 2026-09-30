@@ -1,28 +1,41 @@
 [
   {
-    "id": "ORD-20260930-998879",
-    "name": "Persistence Test Customer",
-    "mobile": "+1 (555) 345-6789",
-    "address": "456 Firestore Persistence Blvd, Austin, TX",
-    "createdAt": "2026-09-30T09:56:25.062Z",
-    "createdAtFormatted": "Sep 30, 2026, 09:56:25 AM",
+    "id": "ORD-20260930-587432",
+    "name": "Browser Download Test Customer",
+    "mobile": "+1 555-888-9999",
+    "address": "789 Browser HTML Road",
+    "createdAt": "2026-09-30T10:09:04.189Z",
+    "createdAtFormatted": "Sep 30, 2026, 10:09:04 AM",
     "status": "new",
-    "notes": "Testing persistence across refresh",
+    "notes": "Submitted via downloaded HTML form (file://)",
     "ip": "127.0.0.1",
     "sourceUrl": "direct-embed",
     "userAgent": "curl/7.88.1"
   },
   {
+    "ip": "127.0.0.1",
+    "createdAtFormatted": "Sep 30, 2026, 09:56:25 AM",
+    "id": "ORD-20260930-998879",
+    "createdAt": "2026-09-30T09:56:25.062Z",
+    "address": "456 Firestore Persistence Blvd, Austin, TX",
+    "userAgent": "curl/7.88.1",
+    "notes": "Order delivered and verified in Firestore",
+    "status": "completed",
+    "mobile": "+1 (555) 345-6789",
+    "sourceUrl": "direct-embed",
+    "name": "Persistence Test Customer"
+  },
+  {
+    "address": "100 Cloud Firestore Way, Mountain View, CA",
     "createdAt": "2026-09-30T09:35:24.208Z",
     "mobile": "+1 (555) 789-0123",
-    "ip": "127.0.0.1",
-    "status": "new",
-    "createdAtFormatted": "Sep 30, 2026, 09:35:24 AM",
-    "name": "Firebase Verification Customer",
-    "notes": "Tested on orderflow-hub",
-    "address": "100 Cloud Firestore Way, Mountain View, CA",
     "userAgent": "curl/7.88.1",
+    "createdAtFormatted": "Sep 30, 2026, 09:35:24 AM",
+    "status": "new",
     "id": "ORD-20260930-998878",
-    "sourceUrl": "direct-embed"
+    "sourceUrl": "direct-embed",
+    "name": "Firebase Verification Customer",
+    "ip": "127.0.0.1",
+    "notes": "Tested on orderflow-hub"
   }
 ]
