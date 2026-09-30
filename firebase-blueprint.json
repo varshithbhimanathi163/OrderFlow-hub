@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "OrderSubmission": {
+      "title": "Order Submission",
+      "description": "Customer order submitted via embeddable form or dashboard",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique Order ID format ORD-YYYYMMDD-XXXXXX"
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer full name"
+        },
+        "mobile": {
+          "type": "string",
+          "description": "Customer contact mobile phone number"
+        },
+        "address": {
+          "type": "string",
+          "description": "Delivery address details"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of order submission"
+        },
+        "createdAtFormatted": {
+          "type": "string",
+          "description": "Formatted local display date and time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "contacted", "processing", "completed", "cancelled"],
+          "description": "Current processing state of the order"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal processing notes or special instructions"
+        },
+        "ip": {
+          "type": "string",
+          "description": "Client IP address for spam detection"
+        },
+        "sourceUrl": {
+          "type": "string",
+          "description": "Website origin or embed URL where form was submitted"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Browser user-agent string"
+        }
+      },
+      "required": ["id", "name", "mobile", "address", "createdAt", "status"]
+    },
+    "ApiKey": {
+      "title": "API Key",
+      "description": "Authentication token for external API synchronization and webhooks",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Internal key identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-friendly label describing key purpose"
+        },
+        "key": {
+          "type": "string",
+          "description": "Secret token string"
+        },
+        "keyPrefix": {
+          "type": "string",
+          "description": "Masked token prefix preview"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["read", "read_write", "admin"],
+          "description": "Access permission tier"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "createdAtFormatted": {
+          "type": "string",
+          "description": "Formatted creation time"
+        },
+        "lastUsedAt": {
+          "type": "string",
+          "description": "Timestamp of most recent authorized request"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "revoked"],
+          "description": "Current authorization state"
+        }
+      },
+      "required": ["id", "name", "key", "role", "createdAt", "status"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "OrderSubmission",
+      "description": "Collection of all customer order submissions"
+    },
+    "/api_keys/{keyId}": {
+      "schema": "ApiKey",
+      "description": "Collection of API synchronization keys"
+    }
+  }
+}

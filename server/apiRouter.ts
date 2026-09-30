@@ -54,6 +54,8 @@ apiRouter.get('/app-info', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     platform: process.env.VERCEL ? 'vercel' : 'node',
+    database: 'Firebase Firestore',
+    databaseId: 'orderflow-hub',
   });
 });
 
@@ -131,7 +133,7 @@ apiRouter.post('/submissions', async (req, res) => {
 });
 
 // 2. Get Submissions
-apiRouter.get('/submissions', (req, res) => {
+apiRouter.get('/submissions', async (req, res) => {
   try {
     const search = (req.query.search as string) || '';
     const status = (req.query.status as string) || 'all';
@@ -140,7 +142,7 @@ apiRouter.get('/submissions', (req, res) => {
     const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
     const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
 
-    const result = getAllOrders({
+    const result = await getAllOrders({
       search,
       status,
       sortBy,
@@ -160,9 +162,9 @@ apiRouter.get('/submissions', (req, res) => {
 });
 
 // 3. Stats Summary
-apiRouter.get('/submissions/stats', (_req, res) => {
+apiRouter.get('/submissions/stats', async (_req, res) => {
   try {
-    const stats = getStats();
+    const stats = await getStats();
     res.json({ success: true, stats });
   } catch (err) {
     console.error('Error fetching stats:', err);
@@ -171,9 +173,9 @@ apiRouter.get('/submissions/stats', (_req, res) => {
 });
 
 // 4. Export CSV
-apiRouter.get('/submissions/export/csv', (_req, res) => {
+apiRouter.get('/submissions/export/csv', async (_req, res) => {
   try {
-    const csv = exportOrdersCsv();
+    const csv = await exportOrdersCsv();
     const dateStr = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="orders-export-${dateStr}.csv"`);
@@ -185,9 +187,9 @@ apiRouter.get('/submissions/export/csv', (_req, res) => {
 });
 
 // 5. Get Single Order Detail
-apiRouter.get('/submissions/:id', (req, res) => {
+apiRouter.get('/submissions/:id', async (req, res) => {
   try {
-    const order = getOrderById(req.params.id);
+    const order = await getOrderById(req.params.id);
     if (!order) {
       res.status(404).json({ success: false, error: 'Order not found' });
       return;
@@ -233,13 +235,13 @@ apiRouter.delete('/submissions/:id', async (req, res) => {
 // -------------------------------------------------------------
 // 8. Sync Orders API (For external apps, Google Sheets, CRMs, Zapier)
 // -------------------------------------------------------------
-const handleSyncOrders = (req: any, res: any) => {
+const handleSyncOrders = async (req: any, res: any) => {
   try {
     const rawKey = extractApiKey(req);
 
     // If an API key is provided, validate it
     if (rawKey) {
-      const validation = validateApiKey(rawKey, 'read');
+      const validation = await validateApiKey(rawKey, 'read');
       if (!validation.valid) {
         res.status(401).json({
           success: false,
@@ -253,7 +255,7 @@ const handleSyncOrders = (req: any, res: any) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
     const status = (req.query.status as string) || 'all';
 
-    const result = syncOrders({ since, limit, status });
+    const result = await syncOrders({ since, limit, status });
 
     res.json({
       success: true,
@@ -269,9 +271,9 @@ apiRouter.get('/sync/orders', handleSyncOrders);
 apiRouter.get('/submissions/sync', handleSyncOrders);
 
 // Cron Sync Endpoint (Protected by CRON_SECRET or Bearer token)
-const handleCronSync = (req: any, res: any) => {
+const handleCronSync = async (req: any, res: any) => {
   try {
-    const keys = getAllApiKeys(true);
+    const keys = await getAllApiKeys(true);
     const activeKey = keys.find((k) => k.status === 'active' && k.key)?.key || (keys[0] && keys[0].key) || 'of_live_api_key';
     const computedCronSecret = 'of_cron_secret_' + activeKey.slice(8, 24);
 
@@ -292,7 +294,7 @@ const handleCronSync = (req: any, res: any) => {
       ) {
         isAuthorized = true;
       } else {
-        const keyCheck = validateApiKey(token, 'read');
+        const keyCheck = await validateApiKey(token, 'read');
         if (keyCheck.valid) {
           isAuthorized = true;
         }
@@ -309,7 +311,7 @@ const handleCronSync = (req: any, res: any) => {
 
     const since = req.query.since as string | undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
-    const syncResult = syncOrders({ since, limit });
+    const syncResult = await syncOrders({ since, limit });
 
     res.json({
       success: true,
@@ -330,7 +332,7 @@ apiRouter.get('/cron/sync', handleCronSync);
 apiRouter.post('/cron/sync', handleCronSync);
 
 // Helper endpoint to get all sync credentials for external apps
-apiRouter.get('/sync/credentials', (req, res) => {
+apiRouter.get('/sync/credentials', async (req, res) => {
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
   let publicUrl = process.env.APP_URL;
@@ -344,7 +346,7 @@ apiRouter.get('/sync/credentials', (req, res) => {
   }
 
   const cleanBase = publicUrl.replace(/\/$/, '');
-  const keys = getAllApiKeys(true);
+  const keys = await getAllApiKeys(true);
   const activeKey = keys.find((k) => k.status === 'active' && k.key)?.key || (keys[0] && keys[0].key) || 'of_live_api_key';
   const cronSecret = process.env.CRON_SECRET || 'of_cron_secret_' + activeKey.slice(8, 24);
 
@@ -365,10 +367,10 @@ apiRouter.get('/sync/credentials', (req, res) => {
 // -------------------------------------------------------------
 
 // List all API keys
-apiRouter.get('/keys', (req, res) => {
+apiRouter.get('/keys', async (req, res) => {
   try {
     const reveal = req.query.reveal === 'true';
-    const keys = getAllApiKeys(reveal);
+    const keys = await getAllApiKeys(reveal);
     res.json({ success: true, keys });
   } catch (err) {
     console.error('Error fetching API keys:', err);
@@ -402,14 +404,14 @@ apiRouter.post('/keys', async (req, res) => {
 });
 
 // Verify / Test an API key
-apiRouter.get('/keys/verify', (req, res) => {
+apiRouter.get('/keys/verify', async (req, res) => {
   const rawKey = extractApiKey(req);
   if (!rawKey) {
     res.status(400).json({ success: false, error: 'Please supply a key in Authorization: Bearer <key> or x-api-key header' });
     return;
   }
 
-  const result = validateApiKey(rawKey);
+  const result = await validateApiKey(rawKey);
   if (!result.valid) {
     res.status(401).json({ success: false, error: result.error });
     return;

@@ -1,36 +1,101 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Layers,
-  CheckCircle2,
+  Menu,
   Copy,
   Check,
-  FileCode,
-  Table,
-  PlayCircle,
-  BookOpen,
-  ExternalLink,
   DownloadCloud,
-  Key,
+  Database,
+  RefreshCw,
+  Search,
+  Bell,
+  HelpCircle,
 } from 'lucide-react';
+import type { NavTabId } from './Sidebar.tsx';
 
 interface HeaderProps {
-  activeTab: 'submissions' | 'builder' | 'preview' | 'docs' | 'api';
-  setActiveTab: (tab: 'submissions' | 'builder' | 'preview' | 'docs' | 'api') => void;
+  activeTab: NavTabId;
+  setActiveTab: (tab: NavTabId) => void;
   totalSubmissions: number;
   publicUrl: string;
   isOnline: boolean;
   onOpenImportModal?: () => void;
+  onOpenMobileNav?: () => void;
+  onManualRefresh?: () => void;
+  onOpenCommandPalette?: () => void;
+  onOpenNotifications?: () => void;
 }
+
+const tabMeta: Record<NavTabId, { category: string; title: string; subtitle: string }> = {
+  dashboard: {
+    category: 'Platform',
+    title: 'Dashboard Overview',
+    subtitle: 'High-level store performance, ingestion volume, and quick actions',
+  },
+  submissions: {
+    category: 'Platform',
+    title: 'Customer Orders',
+    subtitle: 'Manage, fulfill, and update orders submitted via embedded HTML forms',
+  },
+  customers: {
+    category: 'Platform',
+    title: 'Customer Directory',
+    subtitle: 'Aggregated contact records and order history captured through embed forms',
+  },
+  builder: {
+    category: 'Platform',
+    title: 'Embeddable Forms',
+    subtitle: 'Customize HTML/CSS order forms with instant copy & download generator',
+  },
+  preview: {
+    category: 'Platform',
+    title: 'Live Embed Sandbox',
+    subtitle: 'Test form submissions in a real-time iframe sandbox with direct API dispatch',
+  },
+  analytics: {
+    category: 'Platform',
+    title: 'Analytics & Fulfillment',
+    subtitle: 'Conversion metrics, delivery velocity, and status distributions',
+  },
+  automation: {
+    category: 'System',
+    title: 'Automation & Webhooks',
+    subtitle: 'Configure outbound webhook payloads and Zapier event triggers',
+  },
+  api: {
+    category: 'System',
+    title: 'Integrations & API Keys',
+    subtitle: 'Manage authentication tokens for Zapier, external CRMs, and webhooks',
+  },
+  notifications: {
+    category: 'System',
+    title: 'Activity Notifications',
+    subtitle: 'Real-time order submission alerts and sync event logs',
+  },
+  settings: {
+    category: 'System',
+    title: 'Workspace Settings',
+    subtitle: 'Workspace preferences, database status, and embed defaults',
+  },
+  docs: {
+    category: 'System',
+    title: 'Embed & Setup Guide',
+    subtitle: 'Detailed developer specifications for embedding forms and syncing',
+  },
+};
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
-  setActiveTab,
   totalSubmissions,
   publicUrl,
   isOnline,
   onOpenImportModal,
+  onOpenMobileNav,
+  onManualRefresh,
+  onOpenCommandPalette,
+  onOpenNotifications,
 }) => {
-  const [copiedUrl, setCopiedUrl] = React.useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const currentMeta = tabMeta[activeTab] || tabMeta.submissions;
 
   const copyUrl = () => {
     if (!publicUrl) return;
@@ -40,135 +105,116 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 gap-4">
-          {/* Logo & App Name */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">OrderFlow</h1>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60">
-                  Form Engine
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-                  {isOnline ? 'API Ready' : 'Connecting...'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                Embeddable Customer Order Form Generator & Central Management Hub
-              </p>
-            </div>
-          </div>
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs h-14">
+      <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        {/* Left: Mobile Nav Toggle & Breadcrumb / Title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            className="md:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Open navigation sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-          {/* Quick Endpoint Info Badge & Sync Action */}
-          <div className="flex items-center gap-2 text-xs">
-            {onOpenImportModal && (
-              <button
-                type="button"
-                onClick={onOpenImportModal}
-                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                title="Sync or import an order from standalone HTML"
-              >
-                <DownloadCloud className="w-3.5 h-3.5" />
-                <span>Import / Sync Order</span>
-              </button>
-            )}
-
-            <div className="hidden lg:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 font-mono">
-              <span className="text-slate-400">Target Endpoint:</span>
-              <span className="text-blue-700 font-medium truncate max-w-xs">{publicUrl || 'Detecting...'}</span>
-              <button
-                onClick={copyUrl}
-                title="Copy Base URL"
-                className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-              >
-                {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+          <div className="min-w-0 flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400 hidden sm:inline">
+              {currentMeta.category}
+            </span>
+            <span className="text-slate-300 hidden sm:inline">/</span>
+            <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 truncate">
+              {currentMeta.title}
+            </h1>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex space-x-1 sm:space-x-2 border-t border-slate-100 pt-1 -mb-px overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab('submissions')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'submissions'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-            }`}
-          >
-            <Table className="w-4 h-4" />
-            <span>Submissions Table</span>
-            <span
-              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                activeTab === 'submissions'
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-slate-100 text-slate-600'
-              }`}
+        {/* Right: Quick Search, Database Pill, Copy URL, & Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Global Search Trigger in Header */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-xs text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
-              {totalSubmissions}
+              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <span>Search...</span>
+              <kbd className="text-[10px] font-mono px-1 py-0.2 rounded bg-white border border-slate-200 text-slate-400">
+                ⌘K
+              </kbd>
+            </button>
+          )}
+
+          {/* Database Live Status */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="font-mono text-slate-800 font-medium">orderflow-hub</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+              }`}
+            />
+          </div>
+
+          {/* Target Host URL Copy */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-600">
+            <span className="text-slate-400 font-sans hidden 2xl:inline">Host:</span>
+            <span className="text-blue-700 font-medium truncate max-w-[130px] lg:max-w-[170px]">
+              {publicUrl.replace(/^https?:\/\//, '')}
             </span>
-          </button>
+            <button
+              type="button"
+              onClick={copyUrl}
+              title="Copy public host URL for embedded forms"
+              className="p-0.5 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            >
+              {copiedUrl ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('builder')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'builder'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-            }`}
-          >
-            <FileCode className="w-4 h-4" />
-            <span>Form Builder & HTML</span>
-          </button>
+          {/* Refresh Action */}
+          {onManualRefresh && (
+            <button
+              type="button"
+              onClick={onManualRefresh}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+              title="Refresh submissions from Firestore"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('preview')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'preview'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-            }`}
-          >
-            <PlayCircle className="w-4 h-4" />
-            <span>Live Embed Tester</span>
-            <span className="hidden sm:inline-block px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">
-              Interactive
-            </span>
-          </button>
+          {/* Notifications Trigger */}
+          {onOpenNotifications && (
+            <button
+              type="button"
+              onClick={onOpenNotifications}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer relative"
+              title="View notifications"
+            >
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-600" />
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('api')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'api'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-            }`}
-          >
-            <Key className="w-4 h-4 text-indigo-600" />
-            <span>API Keys & Sync</span>
-            <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded">
-              New
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={`flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'docs'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Setup & Architecture Docs</span>
-          </button>
+          {/* Import / Sync Order CTA Button */}
+          {onOpenImportModal && (
+            <button
+              type="button"
+              onClick={onOpenImportModal}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Import or sync orders from standalone HTML"
+            >
+              <DownloadCloud className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Import Order</span>
+              <span className="sm:hidden">Import</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

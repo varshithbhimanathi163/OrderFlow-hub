@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "orderflow-hub",
+      "rules": "firestore.rules"
+    }
+  ]
+}
